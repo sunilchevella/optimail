@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { Building2, ChevronRight } from 'lucide-react';
 import { selectCompany, signOut } from '@/app/actions';
+import { CompanyButton } from './CompanyButton';
 import { requireUser } from '@/lib/auth';
 import { companiesFor, getCompany } from '@/lib/company';
 
@@ -34,14 +34,7 @@ async function Companies() {
       {companies.map((c) => (
         <li key={c.id}>
           <form action={selectCompany.bind(null, c.id)}>
-            <button className="flex w-full items-center gap-3 rounded-lg border border-line px-4 py-3 text-left hover:bg-surface-2">
-              <Building2 size={20} className="shrink-0 text-ink-2" aria-hidden />
-              <span className="flex-1">
-                <span className="block font-medium">{c.name}</span>
-                {current?.id === c.id && <span className="block text-xs text-muted">Open now</span>}
-              </span>
-              <ChevronRight size={16} className="text-muted" aria-hidden />
-            </button>
+            <CompanyButton name={c.name} current={current?.id === c.id} />
           </form>
         </li>
       ))}
