@@ -90,7 +90,7 @@ export async function getTopClients(companyId: number) {
 export type ToolStat = {
   id: number; name: string; category: string | null; billing_cycle: string; status: string; expected_eur: string | null;
   login_email: string | null; account: string | null; renewal_date: string | null; notes: string | null;
-  total_paid: string; payments: number; renews_soon: boolean; first_paid: string | null; last_paid: string | null; last3: string;
+  total_paid: string; payments: number; renews_soon: boolean; first_paid: string | null; last_paid: string | null; last_amount: string | null; last3: string;
 };
 
 export async function getToolStats(companyId: number) {
@@ -100,6 +100,7 @@ export async function getToolStats(companyId: number) {
       coalesce(t.renewal_date <= current_date + 90, false) as renews_soon,
       coalesce(sum(x.amount_eur), 0) as total_paid, count(x.id)::int as payments,
       to_char(min(x.txn_date), 'YYYY-MM-DD') as first_paid, to_char(max(x.txn_date), 'YYYY-MM-DD') as last_paid,
+      (array_agg(x.amount_eur order by x.txn_date desc, x.id desc) filter (where x.id is not null))[1] as last_amount,
       coalesce(sum(x.amount_eur) filter (where x.txn_date >= (date_trunc('month', current_date) - interval '3 months')), 0) as last3
     from tools t
     left join accounts a on a.id = t.payment_account_id
@@ -112,6 +113,8 @@ export async function getToolStats(companyId: number) {
     const expected = t.expected_eur ? Number(t.expected_eur) : null;
     if (t.billing_cycle === 'yearly') return (expected ?? Number(t.total_paid)) / 12;
     if (t.billing_cycle === 'monthly' && expected) return expected;
+    // No expected amount: a monthly plan costs what its latest charge was.
+    if (t.billing_cycle === 'monthly' && t.last_amount) return Number(t.last_amount);
     if (t.billing_cycle === 'one_time') return 0;
     if (t.billing_cycle === 'usage' && t.first_paid) {
       const months = Math.max(1, monthRange(t.first_paid.slice(0, 7), todayMonth()).length);
