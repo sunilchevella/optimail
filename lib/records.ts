@@ -46,7 +46,7 @@ export function refLabel(key: ResourceKey, row: Row) {
 }
 
 export async function loadAllOptions(fields: Field[], companyId: number) {
-  const refs = fields.filter((f) => f.type === 'ref').map((f) => f.ref!);
+  const refs = fields.flatMap((f) => (f.type === 'ref' ? [f.ref!] : f.optionsFrom ? [f.optionsFrom] : []));
   // "+ Add new..." forms have dropdowns of their own (a new project needs its client).
   const nested = refs.filter((k) => QUICK_ADD.includes(k)).flatMap((k) => quickFields(k).filter((f) => f.type === 'ref').map((f) => f.ref!));
   const keys = [...new Set([...refs, ...nested])];

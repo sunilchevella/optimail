@@ -49,6 +49,10 @@ export function RecordForm({ fields, options, initial, action, submitLabel, read
             control = <textarea {...common} rows={3} />;
             break;
           case 'select':
+            if (f.optionsFrom) {
+              control = <RefSelect id={id} field={f} value={value} options={options[f.optionsFrom] ?? []} allOptions={options} disabled={readOnly} byName />;
+              break;
+            }
             control = (
               <select {...common} defaultValue={value || (f.required ? f.options?.[0] : '')}>
                 {!f.required && <option value="">-</option>}

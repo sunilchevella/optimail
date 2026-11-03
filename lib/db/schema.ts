@@ -62,7 +62,6 @@ export const toolStatus = pgEnum('tool_status', ['active', 'trial', 'cancelled',
 export const vendorType = pgEnum('vendor_type', ['software', 'landlord', 'utility', 'supplier', 'freelancer', 'agency', 'other']);
 // refund = money back to us (lowers a cost); reversal = money we give back to a client (lowers revenue).
 export const txnType = pgEnum('txn_type', ['income', 'expense', 'funding', 'deposit', 'refund', 'transfer', 'reversal']);
-export const recordStatus = pgEnum('record_status', ['confirmed', 'review']);
 // Where a transaction is counted. The P&L follows the owner's final P&L sheet, which can
 // differ from cash: e.g. revenue booked at project value (pnl_only) while the client's
 // actual payment is cash_only; rows the P&L leaves out are kept as 'neither'.
@@ -451,8 +450,17 @@ export const assets = pgTable('assets', {
 
 // ─── 5. The ledger ───────────────────────────────────────────────────
 
+// Statuses a ledger entry can have, shared by both companies. 'confirmed' and 'review' are built
+// in (review fills the Needs review page) and cannot be renamed or deleted; any added status is
+// a label only and counts in every total like confirmed.
+export const ledgerStatuses = pgTable('ledger_statuses', {
+  id: id(),
+  name: text().notNull().unique(),
+  sortOrder: integer().notNull().default(0),
+}).enableRLS();
+
 // Every money movement. Direction comes from `type`:
-// in  = income, funding, refund · out = expense, deposit · transfer = account -> transfer_account.
+// in  = income, funding, refund · out = expense, deposit, reversal · transfer = account -> transfer_account.
 export const transactions = pgTable('transactions', {
   id: id(),
   entityId: integer().notNull().references(() => entities.id),
@@ -480,7 +488,7 @@ export const transactions = pgTable('transactions', {
   paidBy: text(),
   reference: text(),
   countsIn: countsIn().notNull().default('pnl_and_cash'),
-  status: recordStatus().notNull().default('confirmed'),
+  status: text().notNull().default('confirmed').references(() => ledgerStatuses.name, { onUpdate: 'cascade' }),
   reviewReason: text(),
   source: text(),
   createdBy: uuid().references(() => profiles.id, { onDelete: 'set null' }),

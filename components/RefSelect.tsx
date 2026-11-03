@@ -11,13 +11,16 @@ const NEW = '__new';
 
 // A dropdown of records from another table. For the lists in QUICK_ADD it ends with
 // "+ Add new...", which opens a small form; the new record is saved and picked right away.
-export function RefSelect({ id, field, value, options, allOptions, disabled }: {
-  id: string; field: Field; value: string; options: Option[]; allOptions: Record<string, Option[]>; disabled?: boolean;
+// byName: the field stores the record's name, not its id (ledger status).
+export function RefSelect({ id, field, value, options, allOptions, disabled, byName }: {
+  id: string; field: Field; value: string; options: Option[]; allOptions: Record<string, Option[]>; disabled?: boolean; byName?: boolean;
 }) {
+  const key = (field.ref ?? field.optionsFrom)!;
   const [opts, setOpts] = useState(options);
   const [current, setCurrent] = useState(value);
   const [adding, setAdding] = useState(false);
-  const canAdd = !disabled && QUICK_ADD.includes(field.ref!);
+  const canAdd = !disabled && QUICK_ADD.includes(key);
+  const optValue = (o: Option) => (byName ? o.label : String(o.value));
 
   return (
     <>
@@ -25,16 +28,16 @@ export function RefSelect({ id, field, value, options, allOptions, disabled }: {
         id={id} name={field.name} disabled={disabled} className="field" value={current}
         onChange={(e) => (e.target.value === NEW ? setAdding(true) : setCurrent(e.target.value))}
       >
-        <option value="">-</option>
-        {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        {canAdd && <option value={NEW}>+ Add new {resources[field.ref!].singular.toLowerCase()}...</option>}
+        {!(byName && field.required) && <option value="">-</option>}
+        {opts.map((o) => <option key={o.value} value={optValue(o)}>{byName ? optionLabel(o.label) : o.label}</option>)}
+        {canAdd && <option value={NEW}>+ Add new {resources[key].singular.toLowerCase()}...</option>}
       </select>
       {adding && createPortal(
         <QuickAddDialog
-          refKey={field.ref!}
+          refKey={key}
           allOptions={allOptions}
           onClose={() => setAdding(false)}
-          onCreated={(o) => { setOpts((list) => [...list, o]); setCurrent(String(o.value)); setAdding(false); }}
+          onCreated={(o) => { setOpts((list) => [...list, o]); setCurrent(optValue(o)); setAdding(false); }}
         />,
         document.body,
       )}

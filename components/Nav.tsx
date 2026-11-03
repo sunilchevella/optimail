@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle, BarChart3, Boxes, Building2, CreditCard, FileText, FolderKanban, LayoutDashboard,
-  Megaphone, Receipt, Settings, Tags, Users, Wallet, Wrench, Coins, ShieldCheck,
+  Megaphone, Receipt, Settings, Tags, Users, Wallet, Wrench, Coins, ShieldCheck, ListChecks,
 } from 'lucide-react';
 
 type Group = { label: string; items: { href: string; label: string; icon: typeof Megaphone }[] };
@@ -33,6 +33,7 @@ const FINANCE_GROUPS: Group[] = [
   ] },
   { label: 'Settings', items: [
     { href: '/r/categories', label: 'Categories', icon: Tags },
+    { href: '/r/ledger_statuses', label: 'Ledger statuses', icon: ListChecks },
     { href: '/r/fx_rates', label: 'Exchange rates', icon: Coins },
     { href: '/users', label: 'Users & access', icon: ShieldCheck },
   ] },

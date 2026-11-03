@@ -83,6 +83,19 @@ const [rev] = await q(`SELECT sum(signed_eur)::float AS pnl FROM v_pnl_lines WHE
 const [revCash] = await q(`SELECT cash_in_eur::float AS cin, cash_out_eur::float AS cout FROM v_cash_flow_monthly WHERE entity_id = 2 AND month = '2026-05-01'`);
 assert((rev as any).pnl === 70 && (revCash as any).cin === 100 && (revCash as any).cout === 30, 'reversal lowers revenue (100 - 30 = 70) and counts as money out');
 
+// Ledger statuses: added ones work, unknown ones are refused, built-in ones are protected.
+await q(`INSERT INTO ledger_statuses (name) VALUES ('pending approval')`);
+await q(`UPDATE transactions SET status = 'pending approval' WHERE description = 'given back'`);
+rejected = false;
+try { await q(`UPDATE transactions SET status = 'made up' WHERE description = 'given back'`); } catch { rejected = true; }
+assert(rejected, 'a status that is not in the list is refused');
+rejected = false;
+try { await q(`DELETE FROM ledger_statuses WHERE name = 'review'`); } catch { rejected = true; }
+assert(rejected, 'built-in status review cannot be deleted');
+await q(`UPDATE ledger_statuses SET name = 'awaiting approval' WHERE name = 'pending approval'`);
+const [renamed] = await q(`SELECT status FROM transactions WHERE description = 'given back'`);
+assert((renamed as any).status === 'awaiting approval', 'renaming a status updates its entries');
+
 await q(`INSERT INTO period_locks (entity_id, period) VALUES (1, '2026-04-01')`);
 rejected = false;
 try { await q(`UPDATE transactions SET description = 'edited' WHERE id = 1`); } catch { rejected = true; }

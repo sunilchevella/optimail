@@ -33,7 +33,7 @@ async function NewContent({ params, searchParams }: PageProps<'/r/[resource]/new
   for (const f of r.fields) {
     if (f.type === 'date' && f.required) initial[f.name] = today;
     if (f.type === 'month' && f.required) initial[f.name] = today.slice(0, 7);
-    if (f.name === 'status' && f.options?.includes('confirmed')) initial.status = 'confirmed';
+    if (f.name === 'status' && f.optionsFrom === 'ledger_statuses') initial.status = 'confirmed';
     if (f.name === 'status' && f.options?.includes('active')) initial.status = 'active';
     if (f.name === 'type' && r.key === 'transactions') initial.type = 'expense';
     if (f.name === 'quantity') initial.quantity = 1;

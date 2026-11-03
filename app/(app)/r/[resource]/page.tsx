@@ -66,6 +66,8 @@ async function ListContent({ params, searchParams }: PageProps<'/r/[resource]'>)
                   <option value="">All</option>
                   {f.type === 'ref'
                     ? options[f.ref!]?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                    : f.optionsFrom
+                    ? options[f.optionsFrom]?.map((o) => <option key={o.value} value={o.label}>{o.label === 'review' ? 'needs review' : optionLabel(o.label)}</option>)
                     : f.options?.map((o) => <option key={o} value={o}>{o === 'review' ? 'needs review' : optionLabel(o)}</option>)}
                 </select>
               )}

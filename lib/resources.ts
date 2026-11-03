@@ -12,6 +12,8 @@ export type Field = {
   type: FieldType;
   options?: readonly string[];
   ref?: ResourceKey;
+  // A select whose choices are the names in another table (ledger statuses), so they can grow.
+  optionsFrom?: ResourceKey;
   required?: boolean;
   list?: boolean; // show as a column on the list page
   filter?: boolean; // offer as a filter on the list page
@@ -44,7 +46,7 @@ export type Resource = {
 export const RESOURCE_KEYS = [
   'transactions', 'invoices', 'invoice_lines', 'payment_allocations', 'clients', 'client_companies', 'projects',
   'billing_milestones', 'recurring_charges', 'placements', 'team_members', 'salary_history', 'tools', 'vendors',
-  'accounts', 'categories', 'assets', 'marketing_campaigns', 'leads', 'fx_rates',
+  'accounts', 'categories', 'ledger_statuses', 'assets', 'marketing_campaigns', 'leads', 'fx_rates',
 ] as const;
 export type ResourceKey = (typeof RESOURCE_KEYS)[number];
 
@@ -96,7 +98,7 @@ const RESOURCES: Record<ResourceKey, Omit<Resource, 'key'>> = {
       { name: 'parentId', label: 'Part of (fee or split of)', type: 'ref', ref: 'transactions' },
       { name: 'reference', label: 'Reference', type: 'text', help: 'Wise transfer ID, invoice number...' },
       { name: 'countsIn', label: 'Counts in', type: 'select', options: e(s.countsIn), required: true, filter: true, help: 'P&L and cash for normal entries. P&L only: a figure from the P&L with no money movement. Cash only: money that moved but is not P&L revenue or cost. Neither: kept for the record.' },
-      { name: 'status', label: 'Status', type: 'select', options: e(s.recordStatus), required: true, list: true, filter: true },
+      { name: 'status', label: 'Status', type: 'select', optionsFrom: 'ledger_statuses', required: true, list: true, filter: true, help: 'Review puts the entry on the Needs review page. Every status counts in the totals.' },
       { name: 'reviewReason', label: 'Review note', type: 'textarea', wide: true },
       { name: 'source', label: 'Source', type: 'text', wide: true },
     ],
@@ -416,6 +418,18 @@ const RESOURCES: Record<ResourceKey, Omit<Resource, 'key'>> = {
       { name: 'notes', label: 'Notes', type: 'textarea', wide: true },
     ],
   },
+  ledger_statuses: {
+    label: 'Ledger statuses',
+    singular: 'Status',
+    table: s.ledgerStatuses,
+    description: 'Statuses for ledger entries, shared by both companies. confirmed and review are built in.',
+    title: (r) => r.name,
+    sort: { field: 'sortOrder', dir: 'asc' },
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true, list: true },
+      { name: 'sortOrder', label: 'Order', type: 'number', list: true },
+    ],
+  },
   categories: {
     label: 'Categories',
     singular: 'Category',
@@ -525,6 +539,7 @@ export const editableFields = (r: Resource) => r.fields.filter((f) => f.type !==
 // the required fields; the rest can be filled in later on the record's own page.
 export const QUICK_ADD: readonly ResourceKey[] = [
   'categories', 'accounts', 'clients', 'client_companies', 'projects', 'team_members', 'tools', 'vendors', 'marketing_campaigns',
+  'ledger_statuses',
 ];
 export const quickFields = (key: ResourceKey) =>
   resources[key].fields.filter((f) => (f.required || f.type === 'boolean') && f.type !== 'computed' && !f.virtual);
