@@ -1,0 +1,2 @@
+ALTER TABLE "invoices" ADD COLUMN "issued_via_account_id" integer;--> statement-breakpoint
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_issued_via_account_id_accounts_id_fk" FOREIGN KEY ("issued_via_account_id") REFERENCES "public"."accounts"("id") ON DELETE set null ON UPDATE no action;

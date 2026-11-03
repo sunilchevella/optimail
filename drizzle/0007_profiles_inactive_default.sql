@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ALTER COLUMN "is_active" SET DEFAULT false;

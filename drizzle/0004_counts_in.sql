@@ -1,0 +1,2 @@
+CREATE TYPE "public"."counts_in" AS ENUM('pnl_and_cash', 'pnl_only', 'cash_only', 'neither');--> statement-breakpoint
+ALTER TABLE "transactions" ADD COLUMN "counts_in" "counts_in" DEFAULT 'pnl_and_cash' NOT NULL;

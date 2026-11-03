@@ -1,0 +1,1 @@
+ALTER TYPE "public"."service_line" ADD VALUE 'course' BEFORE 'shared';
