@@ -7,7 +7,7 @@ import { Card, PageHeader, PageLoading } from '@/components/ui';
 import { can } from '@/lib/auth';
 import { requireCompany } from '@/lib/company';
 import { eur, monthLabel } from '@/lib/format';
-import { getResource } from '@/lib/resources';
+import { getResource, optionLabel } from '@/lib/resources';
 import { listRecords, loadAllOptions, type ListQuery } from '@/lib/records';
 
 export default function ListPage(props: PageProps<'/r/[resource]'>) {
@@ -30,7 +30,7 @@ async function ListContent({ params, searchParams }: PageProps<'/r/[resource]'>)
   let summary: string | null = null;
   if (r.key === 'transactions') {
     const inn = rows.filter((x) => ['income', 'funding', 'refund'].includes(x.type)).reduce((a, x) => a + Number(x.amountEur), 0);
-    const out = rows.filter((x) => ['expense', 'deposit'].includes(x.type)).reduce((a, x) => a + Number(x.amountEur), 0);
+    const out = rows.filter((x) => ['expense', 'deposit', 'reversal'].includes(x.type)).reduce((a, x) => a + Number(x.amountEur), 0);
     summary = `In ${eur(inn, true)} · Out ${eur(out, true)}`;
   } else if (r.sumField) {
     summary = `Total ${eur(rows.reduce((a, x) => a + Number(x[r.sumField!] ?? 0), 0), true)}`;
@@ -66,7 +66,7 @@ async function ListContent({ params, searchParams }: PageProps<'/r/[resource]'>)
                   <option value="">All</option>
                   {f.type === 'ref'
                     ? options[f.ref!]?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
-                    : f.options?.map((o) => <option key={o} value={o}>{o === 'review' ? 'needs review' : o.replace(/_/g, ' ')}</option>)}
+                    : f.options?.map((o) => <option key={o} value={o}>{o === 'review' ? 'needs review' : optionLabel(o)}</option>)}
                 </select>
               )}
             </div>

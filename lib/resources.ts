@@ -48,6 +48,13 @@ export const RESOURCE_KEYS = [
 ] as const;
 export type ResourceKey = (typeof RESOURCE_KEYS)[number];
 
+// How a stored value reads on screen, where the plain value would be unclear.
+const OPTION_LABELS: Record<string, string> = {
+  refund: 'refund received',
+  reversal: 'reversal (refund to client)',
+};
+export const optionLabel = (value: string) => OPTION_LABELS[value] ?? value.replace(/_/g, ' ');
+
 export const CURRENCIES = ['EUR', 'USD', 'CAD', 'INR', 'GBP', 'AED', 'PHP'] as const;
 
 const e = (en: { enumValues: readonly string[] }) => en.enumValues;
@@ -70,7 +77,7 @@ const RESOURCES: Record<ResourceKey, Omit<Resource, 'key'>> = {
     fields: [
       { name: 'txnDate', label: 'Date paid', type: 'date', required: true, list: true, help: 'When the money moved.' },
       { name: 'period', label: 'Month (P&L)', type: 'month', required: true, list: true, filter: true, help: 'The month this belongs to in the P&L.' },
-      { name: 'type', label: 'Type', type: 'select', options: e(s.txnType), required: true, list: true, filter: true },
+      { name: 'type', label: 'Type', type: 'select', options: e(s.txnType), required: true, list: true, filter: true, help: 'Refund received: money back to you from a vendor (lowers a cost). Reversal: money you give back to a client (lowers revenue).' },
       { name: 'description', label: 'Description', type: 'text', required: true, list: true, wide: true },
       { name: 'categoryId', label: 'Category', type: 'ref', ref: 'categories', required: true, list: true, filter: true, help: 'Decides the P&L line. Entries without one would not show in the P&L or charts.' },
       { name: 'amount', label: 'Amount', type: 'money', required: true },
@@ -513,3 +520,11 @@ export function getResource(key: string): Resource | null {
 
 // Fields whose value is calculated by the database (EUR columns).
 export const editableFields = (r: Resource) => r.fields.filter((f) => f.type !== 'computed');
+
+// Tables a dropdown can add to on the spot ("+ Add new..."). The small form asks only for
+// the required fields; the rest can be filled in later on the record's own page.
+export const QUICK_ADD: readonly ResourceKey[] = [
+  'categories', 'accounts', 'clients', 'client_companies', 'projects', 'team_members', 'tools', 'vendors', 'marketing_campaigns',
+];
+export const quickFields = (key: ResourceKey) =>
+  resources[key].fields.filter((f) => (f.required || f.type === 'boolean') && f.type !== 'computed' && !f.virtual);

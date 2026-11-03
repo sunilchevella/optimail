@@ -60,7 +60,8 @@ export const payrollKind = pgEnum('payroll_kind', ['salary', 'prorata', 'arrear'
 export const billingCycle = pgEnum('billing_cycle', ['monthly', 'yearly', 'usage', 'one_time', 'unknown']);
 export const toolStatus = pgEnum('tool_status', ['active', 'trial', 'cancelled', 'unknown']);
 export const vendorType = pgEnum('vendor_type', ['software', 'landlord', 'utility', 'supplier', 'freelancer', 'agency', 'other']);
-export const txnType = pgEnum('txn_type', ['income', 'expense', 'funding', 'deposit', 'refund', 'transfer']);
+// refund = money back to us (lowers a cost); reversal = money we give back to a client (lowers revenue).
+export const txnType = pgEnum('txn_type', ['income', 'expense', 'funding', 'deposit', 'refund', 'transfer', 'reversal']);
 export const recordStatus = pgEnum('record_status', ['confirmed', 'review']);
 // Where a transaction is counted. The P&L follows the owner's final P&L sheet, which can
 // differ from cash: e.g. revenue booked at project value (pnl_only) while the client's

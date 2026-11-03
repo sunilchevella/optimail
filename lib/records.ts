@@ -3,7 +3,7 @@ import { and, asc, desc, eq, getTableColumns, ilike, inArray, lte, or, sql, type
 import { db } from './db/client';
 import { categories, fxRates } from './db/schema';
 import { COURSE_CATEGORY } from './reports';
-import { getResource, resources, type Field, type Resource, type ResourceKey } from './resources';
+import { getResource, QUICK_ADD, quickFields, resources, type Field, type Resource, type ResourceKey } from './resources';
 
 export type Row = Record<string, any>;
 export type Options = { value: number; label: string }[];
@@ -39,14 +39,17 @@ export async function loadOptions(key: ResourceKey, companyId: number): Promise<
   return rows.map((row) => ({ value: row.id, label: refLabel(key, row) }));
 }
 
-function refLabel(key: ResourceKey, row: Row) {
+export function refLabel(key: ResourceKey, row: Row) {
   if (key === 'transactions') return `${row.txnDate} · ${row.description} · €${row.amountEur}`;
   if (key === 'invoices') return `${row.number} (${row.currency} ${row.total})`;
   return resources[key].title(row);
 }
 
 export async function loadAllOptions(fields: Field[], companyId: number) {
-  const keys = [...new Set(fields.filter((f) => f.type === 'ref').map((f) => f.ref!))];
+  const refs = fields.filter((f) => f.type === 'ref').map((f) => f.ref!);
+  // "+ Add new..." forms have dropdowns of their own (a new project needs its client).
+  const nested = refs.filter((k) => QUICK_ADD.includes(k)).flatMap((k) => quickFields(k).filter((f) => f.type === 'ref').map((f) => f.ref!));
+  const keys = [...new Set([...refs, ...nested])];
   const loaded = await Promise.all(keys.map((k) => loadOptions(k, companyId)));
   return Object.fromEntries(keys.map((k, i) => [k, loaded[i]])) as Record<string, Options>;
 }
@@ -181,7 +184,12 @@ export async function parseForm(r: Resource, form: FormData): Promise<{ values?:
     values.fxRate = rate;
   }
   if (r.key === 'transactions' && values.amount !== null && Number(values.amount) <= 0) {
-    return { error: 'Amount must be more than zero. Use the type (expense, income, refund) for the direction.' };
+    return { error: 'Amount must be more than zero. Use the type (expense, income, refund, reversal) for the direction.' };
+  }
+  // A reversal takes back revenue, so it must sit on a revenue category to lower the right P&L line.
+  if (r.key === 'transactions' && values.type === 'reversal' && values.categoryId) {
+    const [c] = await db.select({ kind: categories.kind }).from(categories).where(eq(categories.id, Number(values.categoryId)));
+    if (c?.kind !== 'income') return { error: 'A reversal gives revenue back, so pick the income category of the original payment (e.g. Automation services).' };
   }
   return { values };
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { Field } from '@/lib/resources';
+import { optionLabel, type Field } from '@/lib/resources';
 import { dateLabel, eur, monthLabel, num } from '@/lib/format';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
@@ -32,7 +32,7 @@ export function Badge({ value }: { value: string | null | undefined }) {
   if (!value) return null;
   return (
     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TONES[value] ?? 'bg-surface-2 text-ink-2'}`}>
-      {value === 'review' ? 'Needs review' : value.replace(/_/g, ' ')}
+      {value === 'review' ? 'Needs review' : optionLabel(value)}
     </span>
   );
 }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+import { startTransition, useActionState, type FormEvent } from 'react';
 import type { FormState } from '@/app/actions';
 import type { Field } from '@/lib/resources';
-import { CURRENCIES } from '@/lib/resources';
+import { CURRENCIES, optionLabel } from '@/lib/resources';
+import { RefSelect } from './RefSelect';
 
 type Props = {
   fields: Field[];
@@ -22,12 +23,21 @@ const toInput = (f: Field, v: any) => {
   return String(v);
 };
 
+// A <form action> is cleared by React after every submit, so an error would wipe what was
+// typed. Submitting by hand keeps the fields as they are.
+export function keepOnError(e: FormEvent<HTMLFormElement>, action: (form: FormData) => void) {
+  e.preventDefault();
+  e.stopPropagation(); // a "+ Add new..." form sits inside the page's form in React's tree
+  const form = new FormData(e.currentTarget);
+  startTransition(() => action(form));
+}
+
 export function RecordForm({ fields, options, initial, action, submitLabel, readOnly, returnTo }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const editable = fields.filter((f) => f.type !== 'computed');
 
   return (
-    <form action={formAction} className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+    <form onSubmit={(e) => keepOnError(e, formAction)} className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
       {returnTo && <input type="hidden" name="_return" value={returnTo} />}
       {editable.map((f) => {
         const id = `f-${f.name}`;
@@ -42,17 +52,12 @@ export function RecordForm({ fields, options, initial, action, submitLabel, read
             control = (
               <select {...common} defaultValue={value || (f.required ? f.options?.[0] : '')}>
                 {!f.required && <option value="">-</option>}
-                {f.options?.map((o) => <option key={o} value={o}>{o.replace(/_/g, ' ')}</option>)}
+                {f.options?.map((o) => <option key={o} value={o}>{optionLabel(o)}</option>)}
               </select>
             );
             break;
           case 'ref':
-            control = (
-              <select {...common}>
-                <option value="">-</option>
-                {options[f.ref!]?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            );
+            control = <RefSelect id={id} field={f} value={value} options={options[f.ref!] ?? []} allOptions={options} disabled={readOnly} />;
             break;
           case 'currency':
             control = (

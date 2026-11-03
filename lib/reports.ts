@@ -53,7 +53,7 @@ export async function getTotals(companyId: number) {
     select
       coalesce(sum(amount_eur) filter (where cash and type = 'deposit'), 0) as deposits,
       coalesce(sum(amount_eur) filter (where cash and type in ('income', 'refund')), 0) as cash_in,
-      coalesce(sum(amount_eur) filter (where cash and type = 'expense'), 0) as cash_out,
+      coalesce(sum(amount_eur) filter (where cash and type in ('expense', 'reversal')), 0) as cash_out,
       count(*) filter (where status = 'review') as review_count,
       coalesce(sum(amount_eur) filter (where status = 'review'), 0) as review_eur
     from (select *, counts_in in ('pnl_and_cash', 'cash_only') as cash from transactions where entity_id = ${companyId}) t`);
@@ -81,9 +81,9 @@ export async function getReceivables(companyId: number) {
 
 export async function getTopClients(companyId: number) {
   return db.execute<{ client_id: number; name: string; collected: string; projects: number }>(sql`
-    select c.id as client_id, c.name, sum(t.amount_eur) as collected, count(distinct t.project_id)::int as projects
+    select c.id as client_id, c.name, sum(case when t.type = 'reversal' then -t.amount_eur else t.amount_eur end) as collected, count(distinct t.project_id)::int as projects
     from transactions t join clients c on c.id = t.client_id
-    where t.entity_id = ${companyId} and t.type = 'income' and t.counts_in in ('pnl_and_cash', 'cash_only')
+    where t.entity_id = ${companyId} and t.type in ('income', 'reversal') and t.counts_in in ('pnl_and_cash', 'cash_only')
     group by c.id, c.name order by collected desc limit 8`);
 }
 

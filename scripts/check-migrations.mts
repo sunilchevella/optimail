@@ -77,6 +77,12 @@ try {
 } catch { rejected = true; }
 assert(rejected, 'amounts must be positive');
 
+// A reversal (money given back to a client) lowers revenue and is money out.
+await q(`INSERT INTO transactions (entity_id, txn_date, period, type, category_id, description, amount) VALUES (2, '2026-05-02', '2026-05-01', 'income', 1, 'paid', 100), (2, '2026-05-03', '2026-05-01', 'reversal', 1, 'given back', 30)`);
+const [rev] = await q(`SELECT sum(signed_eur)::float AS pnl FROM v_pnl_lines WHERE entity_id = 2 AND period = '2026-05-01'`);
+const [revCash] = await q(`SELECT cash_in_eur::float AS cin, cash_out_eur::float AS cout FROM v_cash_flow_monthly WHERE entity_id = 2 AND month = '2026-05-01'`);
+assert((rev as any).pnl === 70 && (revCash as any).cin === 100 && (revCash as any).cout === 30, 'reversal lowers revenue (100 - 30 = 70) and counts as money out');
+
 await q(`INSERT INTO period_locks (entity_id, period) VALUES (1, '2026-04-01')`);
 rejected = false;
 try { await q(`UPDATE transactions SET description = 'edited' WHERE id = 1`); } catch { rejected = true; }

@@ -9,13 +9,14 @@ import { db } from '@/lib/db/client';
 import { cookies } from 'next/headers';
 import { COMPANY_COOKIE, companiesFor, getCompany } from '@/lib/company';
 import { attachments, ATTACHMENT_OWNERS } from '@/lib/db/schema';
-import { explainDbError, getResource, inCompany, parseForm } from '@/lib/records';
-import { resources } from '@/lib/resources';
+import { explainDbError, getResource, inCompany, parseForm, refLabel } from '@/lib/records';
+import { QUICK_ADD, resources, type ResourceKey } from '@/lib/resources';
 import { ATTACHMENT_BUCKET, supabaseAdmin, supabaseServer } from '@/lib/supabase/server';
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
-export async function saveRecord(resourceKey: string, id: number | null, _prev: FormState, form: FormData): Promise<FormState> {
+// Checks and writes one record of the picked company. Returns the saved id, or an error.
+async function writeRecord(resourceKey: string, id: number | null, form: FormData): Promise<{ id?: number; values?: Record<string, any>; error?: string }> {
   const r = getResource(resourceKey);
   if (!r) return { error: 'Unknown record type.' };
   const user = await requireUser(id ? 'edit' : 'create').catch(() => null);
@@ -50,8 +51,25 @@ export async function saveRecord(resourceKey: string, id: number | null, _prev: 
     return { error: explainDbError(err) };
   }
   revalidatePath('/', 'layout');
+  return { id: savedId!, values };
+}
+
+export async function saveRecord(resourceKey: string, id: number | null, _prev: FormState, form: FormData): Promise<FormState> {
+  const saved = await writeRecord(resourceKey, id, form);
+  if (saved.error) return { error: saved.error };
   const back = form.get('_return');
-  redirect(typeof back === 'string' && back.startsWith('/') ? back : `/r/${r.key}/${savedId}`);
+  redirect(typeof back === 'string' && back.startsWith('/') ? back : `/r/${resourceKey}/${saved.id}`);
+}
+
+// "+ Add new..." in a dropdown: creates the record and hands back the new option, so the
+// form being filled in stays as it is.
+export type QuickState = { error?: string; option?: { value: number; label: string } } | undefined;
+
+export async function quickCreate(resourceKey: string, _prev: QuickState, form: FormData): Promise<QuickState> {
+  if (!QUICK_ADD.includes(resourceKey as ResourceKey)) return { error: 'This list cannot be added to here.' };
+  const saved = await writeRecord(resourceKey, null, form);
+  if (saved.error) return { error: saved.error };
+  return { option: { value: saved.id!, label: refLabel(resourceKey as ResourceKey, { id: saved.id, ...saved.values }) } };
 }
 
 export async function deleteRecord(resourceKey: string, id: number, _prev: FormState): Promise<FormState> {
