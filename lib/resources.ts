@@ -541,5 +541,10 @@ export const QUICK_ADD: readonly ResourceKey[] = [
   'categories', 'accounts', 'clients', 'client_companies', 'projects', 'team_members', 'tools', 'vendors', 'marketing_campaigns',
   'ledger_statuses',
 ];
+// Which category kind a ledger entry type may use, so income can't be filed under a cost.
+// Types not listed (transfer) can use any category.
+export const CATEGORY_KIND_FOR_TYPE: Record<string, string> = {
+  income: 'income', reversal: 'income', expense: 'expense', refund: 'expense', funding: 'equity', deposit: 'asset',
+};
 export const quickFields = (key: ResourceKey) =>
   resources[key].fields.filter((f) => (f.required || f.type === 'boolean') && f.type !== 'computed' && !f.virtual);

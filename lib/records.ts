@@ -6,7 +6,8 @@ import { COURSE_CATEGORY } from './reports';
 import { getResource, QUICK_ADD, quickFields, resources, type Field, type Resource, type ResourceKey } from './resources';
 
 export type Row = Record<string, any>;
-export type Options = { value: number; label: string }[];
+// kind: a category's kind, so the ledger form can offer only the categories that fit the entry type.
+export type Options = { value: number; label: string; kind?: string }[];
 
 const col = (r: Resource, name: string) => {
   const c = getTableColumns(r.table)[name];
@@ -36,7 +37,7 @@ export async function inCompany(r: Resource, id: number, companyId: number) {
 export async function loadOptions(key: ResourceKey, companyId: number): Promise<Options> {
   const r = resources[key];
   const rows: Row[] = await db.select().from(r.table).where(companyFilter(r, companyId)).orderBy(asc(col(r, r.sort.field)));
-  return rows.map((row) => ({ value: row.id, label: refLabel(key, row) }));
+  return rows.map((row) => ({ value: row.id, label: refLabel(key, row), ...(key === 'categories' ? { kind: row.kind } : {}) }));
 }
 
 export function refLabel(key: ResourceKey, row: Row) {

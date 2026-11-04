@@ -1,14 +1,14 @@
 'use client';
 
-import { startTransition, useActionState, type FormEvent } from 'react';
+import { startTransition, useActionState, useState, type FormEvent } from 'react';
 import type { FormState } from '@/app/actions';
 import type { Field } from '@/lib/resources';
-import { CURRENCIES, optionLabel } from '@/lib/resources';
+import { CATEGORY_KIND_FOR_TYPE, CURRENCIES, optionLabel } from '@/lib/resources';
 import { RefSelect } from './RefSelect';
 
 type Props = {
   fields: Field[];
-  options: Record<string, { value: number; label: string }[]>;
+  options: Record<string, { value: number; label: string; kind?: string }[]>;
   initial: Record<string, any>;
   action: (prev: FormState, form: FormData) => Promise<FormState>;
   submitLabel: string;
@@ -35,6 +35,10 @@ export function keepOnError(e: FormEvent<HTMLFormElement>, action: (form: FormDa
 export function RecordForm({ fields, options, initial, action, submitLabel, readOnly, returnTo }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const editable = fields.filter((f) => f.type !== 'computed');
+  // Ledger: the Category dropdown follows the Type picked (income -> income categories...).
+  const typeField = fields.find((f) => f.name === 'type' && f.type === 'select');
+  const [entryType, setEntryType] = useState<string>(initial.type ?? typeField?.options?.[0] ?? '');
+  const categoryKind = typeField ? CATEGORY_KIND_FOR_TYPE[entryType] : undefined;
 
   return (
     <form onSubmit={(e) => keepOnError(e, formAction)} className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
@@ -54,14 +58,14 @@ export function RecordForm({ fields, options, initial, action, submitLabel, read
               break;
             }
             control = (
-              <select {...common} defaultValue={value || (f.required ? f.options?.[0] : '')}>
+              <select {...common} defaultValue={value || (f.required ? f.options?.[0] : '')} onChange={f === typeField ? (e) => setEntryType(e.target.value) : undefined}>
                 {!f.required && <option value="">-</option>}
                 {f.options?.map((o) => <option key={o} value={o}>{optionLabel(o)}</option>)}
               </select>
             );
             break;
           case 'ref':
-            control = <RefSelect id={id} field={f} value={value} options={options[f.ref!] ?? []} allOptions={options} disabled={readOnly} />;
+            control = <RefSelect id={id} field={f} value={value} options={options[f.ref!] ?? []} allOptions={options} disabled={readOnly} kind={f.ref === 'categories' ? categoryKind : undefined} />;
             break;
           case 'currency':
             control = (

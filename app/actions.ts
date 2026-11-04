@@ -8,9 +8,9 @@ import { asUser, isActiveProfile, requireActive, requireUser } from '@/lib/auth'
 import { db } from '@/lib/db/client';
 import { cookies } from 'next/headers';
 import { COMPANY_COOKIE, companiesFor, getCompany } from '@/lib/company';
-import { attachments, ATTACHMENT_OWNERS } from '@/lib/db/schema';
+import { attachments, ATTACHMENT_OWNERS, categories } from '@/lib/db/schema';
 import { explainDbError, getResource, inCompany, parseForm, refLabel } from '@/lib/records';
-import { QUICK_ADD, resources, type ResourceKey } from '@/lib/resources';
+import { CATEGORY_KIND_FOR_TYPE, QUICK_ADD, resources, type ResourceKey } from '@/lib/resources';
 import { ATTACHMENT_BUCKET, supabaseAdmin, supabaseServer } from '@/lib/supabase/server';
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -26,6 +26,14 @@ async function writeRecord(resourceKey: string, id: number | null, form: FormDat
 
   const { values, error } = await parseForm(r, form);
   if (error || !values) return { error };
+
+  // A ledger entry's category must fit its type (income needs an income category, and so on).
+  if (r.key === 'transactions' && values.categoryId && CATEGORY_KIND_FOR_TYPE[values.type]) {
+    const [cat] = await db.select({ name: categories.name, kind: categories.kind }).from(categories).where(eq(categories.id, Number(values.categoryId)));
+    const need = CATEGORY_KIND_FOR_TYPE[values.type];
+    const an = (w: string) => `${/^[aeiou]/.test(w) ? 'an' : 'a'} ${w}`;
+    if (cat && cat.kind !== need) return { error: `"${cat.name}" is ${an(cat.kind)} category. ${an(values.type)[0].toUpperCase()}${an(values.type).slice(1)} entry needs ${an(need)} category.` };
+  }
 
   // Only the picked company's rows can be changed, and a child row (invoice line, salary
   // change...) can only hang under a parent of that company.
@@ -63,13 +71,14 @@ export async function saveRecord(resourceKey: string, id: number | null, _prev: 
 
 // "+ Add new..." in a dropdown: creates the record and hands back the new option, so the
 // form being filled in stays as it is.
-export type QuickState = { error?: string; option?: { value: number; label: string } } | undefined;
+export type QuickState = { error?: string; option?: { value: number; label: string; kind?: string } } | undefined;
 
 export async function quickCreate(resourceKey: string, _prev: QuickState, form: FormData): Promise<QuickState> {
   if (!QUICK_ADD.includes(resourceKey as ResourceKey)) return { error: 'This list cannot be added to here.' };
   const saved = await writeRecord(resourceKey, null, form);
   if (saved.error) return { error: saved.error };
-  return { option: { value: saved.id!, label: refLabel(resourceKey as ResourceKey, { id: saved.id, ...saved.values }) } };
+  const kind = resourceKey === 'categories' ? { kind: String(saved.values?.kind) } : {};
+  return { option: { value: saved.id!, label: refLabel(resourceKey as ResourceKey, { id: saved.id, ...saved.values }), ...kind } };
 }
 
 export async function deleteRecord(resourceKey: string, id: number, _prev: FormState): Promise<FormState> {
