@@ -5,47 +5,45 @@ import { monthRange, todayMonth } from './format';
 
 export const COST_LINES = ['Manpower', 'Rent', 'Systems & Tools', 'Other Office Cost', 'Equipment', 'Meta Ads & Webinars'] as const;
 
-type PnlRow = { period: string; pnl_group: string; course: boolean; amount_eur: string; review_eur: string };
+type PnlRow = { period: string; pnl_group: string; amount_eur: string; review_eur: string };
 
-// Course revenue is shown apart from automation + staffing revenue. An entry is course when its
-// service line is 'course' or its category name has "course" in it (e.g. "Course revenue").
-// Course costs stay on the normal cost lines.
+// Ledger filter course=yes/no (lib/records.ts). The P&L no longer has a Course line.
 export const COURSE_CATEGORY = '%course%';
 
 // Every report below is for one company (entities.id), the one picked on /company.
+// One P&L row per P&L line. Lines made of income categories are revenue ('Revenue' shows as
+// "Staffing", others like 'FTD Revenue' under their own name); every other line is a cost.
 export async function getPnl(companyId: number) {
   const rows = await db.execute<PnlRow>(sql`
     select to_char(period, 'YYYY-MM-DD') as period, pnl_group,
-      (pnl_group = 'Revenue' and (service_line = 'course' or category ilike ${COURSE_CATEGORY})) as course,
       sum(signed_eur) as amount_eur, sum(case when status = 'review' then signed_eur else 0 end) as review_eur
-    from v_pnl_lines where entity_id = ${companyId} group by 1, 2, 3 order by 1`);
+    from v_pnl_lines where entity_id = ${companyId} group by 1, 2 order by 1`);
   const first = rows[0]?.period ?? `${todayMonth()}-01`;
   const months = monthRange(first, todayMonth());
-  const key = (group: string, course: boolean) => `${course ? 'course' : 'main'}|${group}`;
   const lines = new Map<string, Map<string, number>>();
   const review = new Set<string>();
   for (const r of rows) {
-    const k = key(r.pnl_group, r.course);
-    if (!lines.has(k)) lines.set(k, new Map());
-    lines.get(k)!.set(r.period, Number(r.amount_eur));
-    if (Number(r.review_eur) !== 0) review.add(`${k}|${r.period}`);
+    if (!lines.has(r.pnl_group)) lines.set(r.pnl_group, new Map());
+    lines.get(r.pnl_group)!.set(r.period, Number(r.amount_eur));
+    if (Number(r.review_eur) !== 0) review.add(`${r.pnl_group}|${r.period}`);
   }
-  // get(group, m) is automation + staffing; get(group, m, true) is the course.
-  const get = (group: string, m: string, course = false) => lines.get(key(group, course))?.get(m) ?? 0;
-  const hasReview = (group: string, m: string, course = false) => review.has(`${key(group, course)}|${m}`);
+  const get = (group: string, m: string) => lines.get(group)?.get(m) ?? 0;
+  const hasReview = (group: string, m: string) => review.has(`${group}|${m}`);
   const groups = [...new Set(rows.map((r) => r.pnl_group))];
+  const incomeGroups = (await db.execute<{ pnl_group: string }>(sql`
+    select distinct pnl_group from categories where kind = 'income'`)).map((r) => r.pnl_group);
+  const otherRevenueGroups = groups.filter((g) => g !== 'Revenue' && incomeGroups.includes(g));
+  const isRevenue = (g: string) => g === 'Revenue' || otherRevenueGroups.includes(g);
   const series = months.map((m) => {
-    const mainRevenue = get('Revenue', m);
-    const courseRevenue = get('Revenue', m, true);
-    const revenue = mainRevenue + courseRevenue;
+    const revenue = get('Revenue', m) + otherRevenueGroups.reduce((a, g) => a + get(g, m), 0);
     const costs = Object.fromEntries(COST_LINES.map((g) => [g, -get(g, m)])) as Record<string, number>;
-    const other = groups.filter((g) => g !== 'Revenue' && !(COST_LINES as readonly string[]).includes(g)).reduce((a, g) => a - get(g, m), 0);
+    const other = groups.filter((g) => !isRevenue(g) && !(COST_LINES as readonly string[]).includes(g)).reduce((a, g) => a - get(g, m), 0);
     const totalCosts = Object.values(costs).reduce((a, b) => a + b, 0) + other;
-    return { month: m, mainRevenue, courseRevenue, revenue, costs, totalCosts, net: revenue - totalCosts };
+    return { month: m, revenue, costs, totalCosts, net: revenue - totalCosts };
   });
   let running = 0;
   const withCumulative = series.map((s) => ({ ...s, cumulative: (running += s.net) }));
-  return { months, series: withCumulative, groups, get, hasReview };
+  return { months, series: withCumulative, groups, otherRevenueGroups, isRevenue, get, hasReview };
 }
 
 export async function getTotals(companyId: number) {
