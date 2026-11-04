@@ -11,7 +11,7 @@ export default function PnlPage() {
 
 async function Pnl() {
   const { company } = await requireCompany();
-  const { months, series, groups, otherRevenueGroups, isRevenue, get, hasReview } = await getPnl(company.id);
+  const { months, series, groups, revenueGroups, isRevenue, get, hasReview } = await getPnl(company.id);
   const costLines = [...COST_LINES, ...groups.filter((g) => !isRevenue(g) && !(COST_LINES as readonly string[]).includes(g))];
 
   const cell = (group: string, m: string, value: number) => {
@@ -61,8 +61,7 @@ async function Pnl() {
             </thead>
             <tbody>
               {section('Revenue')}
-              {line('Staffing', 'Revenue')}
-              {otherRevenueGroups.map((g) => line(g, g))}
+              {revenueGroups.map((g) => line(g === 'Revenue' ? 'Staffing' : g, g))}
               {totalRow('Total revenue', series.map((s) => s.revenue))}
               {section('Costs')}
               {costLines.map((g) => line(g, g))}

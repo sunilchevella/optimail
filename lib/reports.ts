@@ -11,8 +11,8 @@ type PnlRow = { period: string; pnl_group: string; amount_eur: string; review_eu
 export const COURSE_CATEGORY = '%course%';
 
 // Every report below is for one company (entities.id), the one picked on /company.
-// One P&L row per P&L line. Lines made of income categories are revenue ('Revenue' shows as
-// "Staffing", others like 'FTD Revenue' under their own name); every other line is a cost.
+// One P&L row per P&L line. Lines made of income categories are revenue (the line 'Revenue'
+// shows as "Staffing", others like 'FTD Revenue' under their own name); every other line is a cost.
 export async function getPnl(companyId: number) {
   const rows = await db.execute<PnlRow>(sql`
     select to_char(period, 'YYYY-MM-DD') as period, pnl_group,
@@ -30,12 +30,15 @@ export async function getPnl(companyId: number) {
   const get = (group: string, m: string) => lines.get(group)?.get(m) ?? 0;
   const hasReview = (group: string, m: string) => review.has(`${group}|${m}`);
   const groups = [...new Set(rows.map((r) => r.pnl_group))];
-  const incomeGroups = (await db.execute<{ pnl_group: string }>(sql`
-    select distinct pnl_group from categories where kind = 'income'`)).map((r) => r.pnl_group);
-  const otherRevenueGroups = groups.filter((g) => g !== 'Revenue' && incomeGroups.includes(g));
-  const isRevenue = (g: string) => g === 'Revenue' || otherRevenueGroups.includes(g);
+  // Revenue rows come from Categories: every P&L line that has an income category, in category order.
+  // A new income category shows up here straight away, even before it has entries.
+  const incomeGroups = (await db.execute<{ pnl_group: string; active: boolean }>(sql`
+    select pnl_group, bool_or(is_active) as active from categories where kind = 'income'
+    group by pnl_group order by min(sort_order), pnl_group`));
+  const revenueGroups = incomeGroups.filter((g) => g.active || groups.includes(g.pnl_group)).map((g) => g.pnl_group);
+  const isRevenue = (g: string) => revenueGroups.includes(g);
   const series = months.map((m) => {
-    const revenue = get('Revenue', m) + otherRevenueGroups.reduce((a, g) => a + get(g, m), 0);
+    const revenue = revenueGroups.reduce((a, g) => a + get(g, m), 0);
     const costs = Object.fromEntries(COST_LINES.map((g) => [g, -get(g, m)])) as Record<string, number>;
     const other = groups.filter((g) => !isRevenue(g) && !(COST_LINES as readonly string[]).includes(g)).reduce((a, g) => a - get(g, m), 0);
     const totalCosts = Object.values(costs).reduce((a, b) => a + b, 0) + other;
@@ -43,7 +46,7 @@ export async function getPnl(companyId: number) {
   });
   let running = 0;
   const withCumulative = series.map((s) => ({ ...s, cumulative: (running += s.net) }));
-  return { months, series: withCumulative, groups, otherRevenueGroups, isRevenue, get, hasReview };
+  return { months, series: withCumulative, groups, revenueGroups, isRevenue, get, hasReview };
 }
 
 export async function getTotals(companyId: number) {
