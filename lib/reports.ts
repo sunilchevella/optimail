@@ -11,8 +11,7 @@ type PnlRow = { period: string; pnl_group: string; category_id: number; income: 
 export const COURSE_CATEGORY = '%course%';
 
 // Every report below is for one company (entities.id), the one picked on /company.
-// Revenue: one row per income category (a new income category shows straight away, even before
-// it has entries). Costs: one row per P&L line of the expense categories.
+// Revenue: one row per income category that has entries. Costs: one row per P&L line.
 export async function getPnl(companyId: number) {
   const rows = await db.execute<PnlRow>(sql`
     select to_char(period, 'YYYY-MM-DD') as period, pnl_group, category_id, (kind = 'income') as income,
@@ -33,9 +32,10 @@ export async function getPnl(companyId: number) {
   const hasReview = (k: string, m: string) => review.has(`${k}|${m}`);
   const groups = [...new Set(rows.filter((r) => !r.income).map((r) => r.pnl_group))];
   const used = new Set(rows.filter((r) => r.income).map((r) => r.category_id));
-  const revenueCategories = (await db.execute<{ id: number; name: string; is_active: boolean }>(sql`
-    select id, name, is_active from categories where kind = 'income' order by sort_order, name`))
-    .filter((c) => c.is_active || used.has(c.id)).map((c) => ({ id: c.id, name: c.name, key: `cat:${c.id}` }));
+  // Only income categories that have entries for this company get a row.
+  const revenueCategories = (await db.execute<{ id: number; name: string }>(sql`
+    select id, name from categories where kind = 'income' order by sort_order, name`))
+    .filter((c) => used.has(c.id)).map((c) => ({ id: c.id, name: c.name, key: `cat:${c.id}` }));
   const series = months.map((m) => {
     const revenue = revenueCategories.reduce((a, c) => a + get(c.key, m), 0);
     const costs = Object.fromEntries(COST_LINES.map((g) => [g, -get(g, m)])) as Record<string, number>;
