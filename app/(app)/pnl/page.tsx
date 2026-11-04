@@ -11,16 +11,17 @@ export default function PnlPage() {
 
 async function Pnl() {
   const { company } = await requireCompany();
-  const { months, series, groups, revenueGroups, isRevenue, get, hasReview } = await getPnl(company.id);
-  const costLines = [...COST_LINES, ...groups.filter((g) => !isRevenue(g) && !(COST_LINES as readonly string[]).includes(g))];
+  const { months, series, groups, revenueCategories, get, hasReview } = await getPnl(company.id);
+  const costLines = [...COST_LINES, ...groups.filter((g) => !(COST_LINES as readonly string[]).includes(g))];
 
-  const cell = (group: string, m: string, value: number) => {
-    const href = `/r/transactions?pnlGroup=${encodeURIComponent(group)}&period=${m.slice(0, 7)}`;
+  // key is a cost line name or `cat:<id>` for an income category; filter is the ledger link for it.
+  const cell = (key: string, filter: string, m: string, value: number) => {
+    const href = `/r/transactions?${filter}&period=${m.slice(0, 7)}`;
     if (!value) return <span className="text-muted">-</span>;
     return (
       <Link href={href} className="hover:underline" title="Open the entries behind this number">
         {eur(Math.abs(value))}
-        {hasReview(group, m) && <span className="ml-1 text-warn-ink" title="Includes entries that need review">•</span>}
+        {hasReview(key, m) && <span className="ml-1 text-warn-ink" title="Includes entries that need review">•</span>}
       </Link>
     );
   };
@@ -28,11 +29,11 @@ async function Pnl() {
   const section = (label: string) => (
     <tr><td colSpan={months.length + 2} className="pt-4 text-xs font-medium uppercase tracking-wide text-muted">{label}</td></tr>
   );
-  const line = (label: string, group: string) => (
-    <tr key={group}>
+  const line = (label: string, key: string, filter = `pnlGroup=${encodeURIComponent(key)}`) => (
+    <tr key={key}>
       <td className="sticky left-0 bg-surface whitespace-nowrap">{label}</td>
-      {months.map((m) => <td key={m} className="text-right">{cell(group, m, get(group, m))}</td>)}
-      <td className="text-right">{eur(Math.abs(total((m) => get(group, m))))}</td>
+      {months.map((m) => <td key={m} className="text-right">{cell(key, filter, m, get(key, m))}</td>)}
+      <td className="text-right">{eur(Math.abs(total((m) => get(key, m))))}</td>
     </tr>
   );
   const totalRow = (label: string, values: number[], tone = false) => (
@@ -47,7 +48,7 @@ async function Pnl() {
     <>
       <PageHeader
         title="Profit & loss"
-        subtitle="Built from the ledger. Each row is a P&L line from Categories. Click a number to see the entries behind it. • marks a number that includes entries needing review."
+        subtitle="Built from the ledger. Revenue has a row per income category; costs a row per P&L line. Click a number to see the entries behind it. • marks a number that includes entries needing review."
       />
       <Card>
         <div className="overflow-x-auto">
@@ -61,7 +62,7 @@ async function Pnl() {
             </thead>
             <tbody>
               {section('Revenue')}
-              {revenueGroups.map((g) => line(g === 'Revenue' ? 'Staffing' : g, g))}
+              {revenueCategories.map((c) => line(c.name, c.key, `categoryId=${c.id}`))}
               {totalRow('Total revenue', series.map((s) => s.revenue))}
               {section('Costs')}
               {costLines.map((g) => line(g, g))}
