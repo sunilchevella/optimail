@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { GroupedBars, HorizontalBars, SingleLine, StackedBars } from '@/components/charts/Charts';
+import RangePicker from '@/components/RangePicker';
 import { Card, PageHeader, PageLoading } from '@/components/ui';
 import { requireCompany } from '@/lib/company';
 import { dateLabel, eur, monthLabel, money, todayMonth } from '@/lib/format';
@@ -11,7 +12,10 @@ const RANGES = [
   { value: 'all', label: 'All time' },
   { value: '6', label: 'Last 6 months' },
   { value: '3', label: 'Last 3 months' },
+  { value: 'custom', label: 'Custom range' },
 ];
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export default function DashboardPage(props: PageProps<'/'>) {
   return <Suspense fallback={<PageLoading />}><Dashboard {...props} /></Suspense>;
@@ -30,13 +34,23 @@ function Stat({ label, value, note, tone }: { label: string; value: string; note
 async function Dashboard({ searchParams }: PageProps<'/'>) {
   const { company } = await requireCompany();
   const sp = await searchParams;
-  const range = typeof sp.range === 'string' && ['6', '3'].includes(sp.range) ? sp.range : 'all';
+  const range = typeof sp.range === 'string' && ['6', '3', 'custom'].includes(sp.range) ? sp.range : 'all';
 
   const [pnl, totals, receivables, topClients, tools] = await Promise.all([
     getPnl(company.id), getTotals(company.id), getReceivables(company.id), getTopClients(company.id), getToolStats(company.id),
   ]);
   const current = `${todayMonth()}-01`;
-  const shown = range === 'all' ? pnl.series : pnl.series.slice(-Number(range));
+  const firstMonth = pnl.series[0]?.month.slice(0, 7) ?? todayMonth();
+  const lastMonth = pnl.series.at(-1)?.month.slice(0, 7) ?? todayMonth();
+  let from = typeof sp.from === 'string' && MONTH_RE.test(sp.from) ? sp.from : firstMonth;
+  let to = typeof sp.to === 'string' && MONTH_RE.test(sp.to) ? sp.to : lastMonth;
+  if (from > to) [from, to] = [to, from];
+  const shown = range === 'all' ? pnl.series
+    : range === 'custom' ? pnl.series.filter((s) => s.month >= `${from}-01` && s.month <= `${to}-01`)
+    : pnl.series.slice(-Number(range));
+  const rangeLabel = range === 'custom'
+    ? (from === to ? monthLabel(from) : `${monthLabel(from)} to ${monthLabel(to)}`)
+    : RANGES.find((r) => r.value === range)!.label.toLowerCase();
   const complete = pnl.series.filter((s) => s.month < current);
   const last3 = complete.slice(-3);
   const burn = last3.length ? last3.reduce((a, s) => a + (s.totalCosts - s.revenue), 0) / last3.length : 0;
@@ -64,13 +78,7 @@ async function Dashboard({ searchParams }: PageProps<'/'>) {
         title="Dashboard"
         subtitle={`${company.name}, all amounts in EUR. ${first ? `Books start ${monthLabel(first)}.` : ''}`}
         actions={
-          <form className="flex gap-2">
-            <label htmlFor="range" className="sr-only">Period</label>
-            <select id="range" name="range" defaultValue={range} className="field w-40">
-              {RANGES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
-            <button className="btn">Show</button>
-          </form>
+          <RangePicker options={RANGES} range={range} from={from} to={to} min={firstMonth} max={lastMonth} />
         }
       />
 
@@ -93,7 +101,7 @@ async function Dashboard({ searchParams }: PageProps<'/'>) {
       </section>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label={`Revenue, P&L (${RANGES.find((r) => r.value === range)!.label.toLowerCase()})`} value={eur(revenue)} />
+        <Stat label={`Revenue, P&L (${rangeLabel})`} value={eur(revenue)} />
         <Stat label="Costs" value={eur(costs)} note={`Result ${eur(revenue - costs)}`} tone={revenue - costs < 0 ? 'bad' : 'good'} />
         <Stat
           label="Monthly burn"
