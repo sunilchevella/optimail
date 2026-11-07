@@ -357,6 +357,47 @@ export const placements = pgTable('placements', {
   notes: text(),
 }, (t) => [currencyCheck('placements_currency_iso', t.currency)]).enableRLS();
 
+// Staffing sheet: the owner's monthly per-person sheet for a client, kept exactly as given
+// (every income and cost column plus the sheet's own profit columns). Each row creates two
+// ledger entries, which it links to: income (Staffing services) and cost (Team salaries).
+// Income  = agency fee + recruitment fee + salary + seat.
+// Cost    = employee cost + payroll & tax + office seat + lunch + leave benefits.
+// The other columns are kept for the sheet view only.
+export const staffingSheet = pgTable('staffing_sheet', {
+  id: id(),
+  entityId: integer().notNull().references(() => entities.id),
+  clientId: integer().notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  teamMemberId: integer().notNull().references(() => teamMembers.id),
+  monthEnd: date().notNull(),
+  nameInSheet: text().notNull(),
+  position: text(),
+  currency: currency(),
+  laptop: money().notNull().default(0),
+  recruitmentFee: money().notNull().default(0),
+  agencyFee: money().notNull().default(0),
+  salary: money().notNull().default(0),
+  seat: money().notNull().default(0),
+  bonus: money().notNull().default(0),
+  employeeCost: money().notNull().default(0),
+  payrollTax: money().notNull().default(0),
+  officeSeat: money().notNull().default(0),
+  lunch: money().notNull().default(0),
+  medicalInsurance: money().notNull().default(0),
+  providentFund: money().notNull().default(0),
+  gratuity: money().notNull().default(0),
+  leaveBenefits: money().notNull().default(0),
+  profitFirstMonth: money(),
+  profitPerEmployee: money(),
+  incomeTxnId: integer().references(() => transactions.id, { onDelete: 'set null' }),
+  expenseTxnId: integer().references(() => transactions.id, { onDelete: 'set null' }),
+  source: text(),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('staffing_sheet_row').on(t.clientId, t.teamMemberId, t.monthEnd),
+  index('staffing_sheet_entity_client').on(t.entityId, t.clientId, t.monthEnd),
+  currencyCheck('staffing_sheet_currency_iso', t.currency),
+]).enableRLS();
+
 export const payrollRuns = pgTable('payroll_runs', {
   id: id(),
   entityId: integer().notNull().references(() => entities.id),

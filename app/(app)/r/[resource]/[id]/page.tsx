@@ -1,18 +1,19 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { and, desc, eq, getTableName } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableName } from 'drizzle-orm';
 import { Plus } from 'lucide-react';
 import { deleteRecord, saveRecord } from '@/app/actions';
 import { ActionButton } from '@/components/ActionButton';
 import { Attachments } from '@/components/Attachments';
 import { RecordForm } from '@/components/RecordForm';
 import { RecordTable } from '@/components/RecordTable';
+import { StaffingSheet, type SheetRowView } from '@/components/StaffingSheet';
 import { Badge, Card, PageHeader, PageLoading, formatValue } from '@/components/ui';
 import { can } from '@/lib/auth';
 import { requireCompany } from '@/lib/company';
 import { db } from '@/lib/db/client';
-import { auditLog, profiles } from '@/lib/db/schema';
+import { auditLog, profiles, staffingSheet } from '@/lib/db/schema';
 import { dateLabel } from '@/lib/format';
 import { getResource, resources, type Resource } from '@/lib/resources';
 import { getRecord, listRecords, loadAllOptions } from '@/lib/records';
@@ -74,6 +75,7 @@ async function DetailContent({ params }: PageProps<'/r/[resource]/[id]'>) {
               returnTo={back}
             />
           </Card>
+          {r.key === 'clients' && <ClientStaffingSheet clientId={id} companyId={company.id} />}
           {r.children?.map((c) => <ChildList key={`${c.resource}-${c.fk}`} parent={r} parentId={id} companyId={company.id} child={c} canCreate={can(user, 'create')} back={back} />)}
         </div>
         <div className="space-y-4">
@@ -106,6 +108,20 @@ async function ChildList({ parent, parentId, companyId, child, canCreate, back }
       {total !== null && rows.length > 1 && r.key !== 'transactions' && (
         <p className="mt-2 text-right text-xs text-muted num">Total {total.toLocaleString('en-IE', { style: 'currency', currency: 'EUR' })}</p>
       )}
+    </Card>
+  );
+}
+
+// The client's staffing sheet (imported from the owner's monthly sheet), when it has one.
+async function ClientStaffingSheet({ clientId, companyId }: { clientId: number; companyId: number }) {
+  const rows = await db.select().from(staffingSheet)
+    .where(and(eq(staffingSheet.clientId, clientId), eq(staffingSheet.entityId, companyId)))
+    .orderBy(asc(staffingSheet.monthEnd), asc(staffingSheet.id));
+  if (rows.length === 0) return null;
+  const view: SheetRowView[] = rows.map(({ nameInSheet, createdAt, updatedAt, ...r }) => ({ ...r, name: nameInSheet }));
+  return (
+    <Card title={`Staffing sheet (${rows.length} rows)`}>
+      <StaffingSheet rows={view} />
     </Card>
   );
 }
