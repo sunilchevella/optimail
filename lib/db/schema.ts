@@ -357,6 +357,26 @@ export const placements = pgTable('placements', {
   notes: text(),
 }, (t) => [currencyCheck('placements_currency_iso', t.currency)]).enableRLS();
 
+// One upload of a staffing sheet from the Import page. Undo removes everything it created:
+// its sheet rows, their ledger entries, and team members it added that nothing else uses.
+export const staffingImports = pgTable('staffing_imports', {
+  id: id(),
+  entityId: integer().notNull().references(() => entities.id),
+  clientId: integer().references(() => clients.id, { onDelete: 'set null' }),
+  fileName: text().notNull(),
+  status: text().notNull().default('applied'), // applied | undone
+  rowsAdded: integer().notNull().default(0),
+  rowsSkipped: integer().notNull().default(0),
+  incomeEur: money().notNull().default(0),
+  costEur: money().notNull().default(0),
+  createdMemberIds: jsonb().$type<number[]>().notNull().default([]),
+  createdClient: boolean().notNull().default(false),
+  createdBy: uuid().references(() => profiles.id, { onDelete: 'set null' }),
+  undoneAt: timestamp({ withTimezone: true }),
+  undoneBy: uuid().references(() => profiles.id, { onDelete: 'set null' }),
+  ...timestamps,
+}, (t) => [index('staffing_imports_entity').on(t.entityId, t.createdAt)]).enableRLS();
+
 // Staffing sheet: the owner's monthly per-person sheet for a client, kept exactly as given
 // (every income and cost column plus the sheet's own profit columns). Each row creates two
 // ledger entries, which it links to: income (Staffing services) and cost (Team salaries).
@@ -390,6 +410,7 @@ export const staffingSheet = pgTable('staffing_sheet', {
   profitPerEmployee: money(),
   incomeTxnId: integer().references(() => transactions.id, { onDelete: 'set null' }),
   expenseTxnId: integer().references(() => transactions.id, { onDelete: 'set null' }),
+  importId: integer().references(() => staffingImports.id, { onDelete: 'set null' }),
   source: text(),
   ...timestamps,
 }, (t) => [

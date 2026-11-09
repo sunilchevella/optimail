@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle, BarChart3, Boxes, Building2, CreditCard, FileText, FolderKanban, LayoutDashboard,
-  Megaphone, Receipt, Settings, Tags, Users, Wallet, Wrench, Coins, ShieldCheck, ListChecks,
+  Megaphone, Receipt, Upload, Settings, Tags, Users, Wallet, Wrench, Coins, ShieldCheck, ListChecks,
 } from 'lucide-react';
 
 type Group = { label: string; items: { href: string; label: string; icon: typeof Megaphone }[] };
@@ -17,6 +17,7 @@ const FINANCE_GROUPS: Group[] = [
   { label: 'Money', items: [
     { href: '/r/transactions', label: 'Ledger', icon: Receipt },
     { href: '/r/transactions?status=review', label: 'Needs review', icon: AlertTriangle },
+    { href: '/import', label: 'Upload staffing sheet', icon: Upload },
     { href: '/r/invoices', label: 'Invoices', icon: FileText },
     { href: '/r/accounts', label: 'Accounts & cards', icon: CreditCard },
   ] },

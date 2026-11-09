@@ -21,6 +21,8 @@ const TONES: Record<string, string> = {
   paid: 'bg-[color-mix(in_srgb,var(--good)_14%,transparent)] text-good',
   confirmed: 'bg-[color-mix(in_srgb,var(--good)_14%,transparent)] text-good',
   active: 'bg-[color-mix(in_srgb,var(--good)_14%,transparent)] text-good',
+  applied: 'bg-[color-mix(in_srgb,var(--good)_14%,transparent)] text-good',
+  undone: 'bg-surface-2 text-muted line-through',
   completed: 'bg-surface-2 text-ink-2',
   cancelled: 'bg-surface-2 text-muted line-through',
   left: 'bg-surface-2 text-ink-2',
