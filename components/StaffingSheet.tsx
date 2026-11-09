@@ -10,13 +10,12 @@ export type SheetRowView = {
 // Columns in the same order as the owner's sheet.
 const INCOME = [['laptop', 'Laptop'], ['recruitmentFee', 'Recruitment fee'], ['agencyFee', 'Agency fees'], ['salary', 'Salary'], ['seat', 'Seat'], ['bonus', 'Bonus']] as const;
 const COST = [
-  ['employeeCost', 'Employee cost'], ['payrollTax', 'Payroll & tax'], ['officeSeat', 'Office seat'], ['lunch', 'Lunch & beverages'],
-  ['medicalInsurance', 'Medical insurance'], ['providentFund', 'Provident fund'], ['gratuity', 'Gratuity'], ['leaveBenefits', 'Leave benefits'],
+  ['employeeCost', 'Employee cost'], ['payrollTax', 'Payroll & tax'], ['lunch', 'Lunch & beverages'], ['leaveBenefits', 'Leave benefits'],
 ] as const;
 const PROFIT = [['profitFirstMonth', 'Profit/Employee (first month)'], ['profitPerEmployee', 'Profit/Employee']] as const;
 // What the ledger books (see lib/staffing.ts).
-const INCOME_BOOKED = ['agencyFee', 'recruitmentFee', 'salary', 'seat'];
-const COST_BOOKED = ['employeeCost', 'payrollTax', 'officeSeat', 'lunch', 'leaveBenefits'];
+const INCOME_BOOKED = ['agencyFee', 'recruitmentFee', 'salary', 'seat', 'bonus'];
+const COST_BOOKED = ['employeeCost', 'payrollTax', 'lunch', 'leaveBenefits'];
 
 const n = (v: unknown) => Number(v ?? 0);
 const fmt = (v: number | null) => (v === null ? '' : v.toLocaleString('en-IE', { maximumFractionDigits: 2 }));

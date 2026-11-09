@@ -229,8 +229,8 @@ export function ImportForm({ clients, members }: { clients: ClientOpt[]; members
               <button className="btn mt-3 text-xs" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show first 50' : `Show all ${r.rows.length} rows`}</button>
             )}
             <p className="mt-3 text-xs text-muted">
-              Income = Agency fees + Recruitment fee + Salary + Seat. Cost = Employee cost + Payroll &amp; tax + Office seat + Lunch &amp; beverages + Leave benefits.
-              Laptop, Bonus, Medical insurance, Provident fund and Gratuity are kept on the sheet but not booked. &quot;Sheet profit&quot; is highlighted when it differs from income minus cost by more than 1 euro (smaller gaps are rounding).
+              Income = Agency fees + Recruitment fee + Salary + Seat + Bonus. Cost = Employee cost + Payroll &amp; tax + Lunch &amp; beverages + Leave benefits.
+              Laptop is kept on the sheet but not booked. &quot;Sheet profit&quot; is highlighted when it differs from income minus cost by more than 1 euro (smaller gaps are rounding).
             </p>
           </section>
         </>

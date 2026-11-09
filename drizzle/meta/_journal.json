@@ -113,6 +113,13 @@
       "when": 1794051921645,
       "tag": "0015_staffing_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794237484890,
+      "tag": "0016_drop_unused_staffing_columns",
+      "breakpoints": true
     }
   ]
 }

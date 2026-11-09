@@ -1,9 +1,10 @@
 // Staffing sheet import: the owner's monthly per-person sheet for one client (date, name,
 // position, income columns, cost columns, profit columns) goes into `staffing_sheet` as given,
 // and every row books two ledger entries that it links to:
-//   income  (category "Staffing services") = agency fee + recruitment fee + salary + seat
+//   income  (category "Staffing services") = agency fee + recruitment fee + salary + seat + bonus
 //   cost    (category "Team salaries", P&L line Manpower)
-//           = employee cost + payroll & tax + office seat + lunch + leave benefits
+//           = employee cost + payroll & tax + lunch + leave benefits
+// Laptop and the two profit columns are kept on the sheet for viewing, not booked.
 // Only numbers from the sheet are used; nothing is calculated except these two sums.
 // Amounts are rounded to whole euros. Blank cells count as 0. A sheet date stands for its
 // month and is stored as that month's last day. A row that already exists for the same
@@ -17,17 +18,16 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const MONEY_COLUMNS = [
   'laptop', 'recruitmentFee', 'agencyFee', 'salary', 'seat', 'bonus',
-  'employeeCost', 'payrollTax', 'officeSeat', 'lunch', 'medicalInsurance', 'providentFund', 'gratuity', 'leaveBenefits',
+  'employeeCost', 'payrollTax', 'lunch', 'leaveBenefits',
   'profitFirstMonth', 'profitPerEmployee',
 ] as const;
 export type MoneyColumn = (typeof MONEY_COLUMNS)[number];
 
 export const INCOME_PARTS: [MoneyColumn, string][] = [
-  ['agencyFee', 'Agency fee'], ['recruitmentFee', 'Recruitment fee'], ['salary', 'Salary'], ['seat', 'Seat'],
+  ['agencyFee', 'Agency fee'], ['recruitmentFee', 'Recruitment fee'], ['salary', 'Salary'], ['seat', 'Seat'], ['bonus', 'Bonus'],
 ];
 export const COST_PARTS: [MoneyColumn, string][] = [
-  ['employeeCost', 'Employee cost'], ['payrollTax', 'Payroll & tax'], ['officeSeat', 'Office seat'],
-  ['lunch', 'Lunch'], ['leaveBenefits', 'Leave benefits'],
+  ['employeeCost', 'Employee cost'], ['payrollTax', 'Payroll & tax'], ['lunch', 'Lunch'], ['leaveBenefits', 'Leave benefits'],
 ];
 
 export const INCOME_CATEGORY = 'Staffing services';
@@ -49,9 +49,7 @@ const HEADERS: Record<string, MoneyColumn | 'date' | 'name' | 'position'> = {
   laptop: 'laptop', 'recruitment fee': 'recruitmentFee', 'agency fees': 'agencyFee', 'agency fee': 'agencyFee',
   salary: 'salary', seat: 'seat', bonus: 'bonus',
   'employee cost': 'employeeCost', 'payroll & tax': 'payrollTax', 'payroll and tax': 'payrollTax',
-  'office seat': 'officeSeat', 'lunch & beverages': 'lunch', lunch: 'lunch',
-  'medical insurance': 'medicalInsurance', 'provident fund': 'providentFund', gratuity: 'gratuity',
-  'leave benefits': 'leaveBenefits',
+  'lunch & beverages': 'lunch', lunch: 'lunch', 'leave benefits': 'leaveBenefits',
   'profit/employee (first month)': 'profitFirstMonth', 'profit/employee': 'profitPerEmployee',
 };
 
@@ -110,7 +108,8 @@ export function parseStaffingGrid(grid: Cell[][]): ParsedSheet {
   const h = grid.findIndex((l) => l.some((c) => HEADERS[header(c)] === 'date') && l.some((c) => header(c) === 'name'));
   if (h < 0) throw new Error('No header row with "Date" and "Name" found. Use the staffing sheet template.');
   const map = grid[h].map((c) => HEADERS[header(c)]);
-  const ignoredColumns = grid[h].filter((c, i) => text(c) && !map[i]).map(text);
+  const filled = (i: number) => grid.slice(h + 1).some((r) => { const v = text(r[i]); return v !== '' && v !== '0' && v !== '-'; });
+  const ignoredColumns = grid[h].map((c, i) => (text(c) && !map[i] && filled(i) ? text(c) : '')).filter(Boolean);
   const rows: SheetRow[] = [];
   for (const [i, cells] of grid.slice(h + 1).entries()) {
     const get = (k: string) => cells[map.indexOf(k as never)];
